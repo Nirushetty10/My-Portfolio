@@ -1,87 +1,79 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
-import { Canvas, useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { BackSide, Color, Group, Mesh, TextureLoader, Vector2 } from 'three';
 import { useIsTouchDevice, useReducedMotion } from '../../hooks/useMediaQuery';
 
+const TEXTURE_BASE = '/textures';
+
 /**
- * A simple rotating globe standing in for "connected, global-scale work" —
- * a wireframe sphere (latitude/longitude grid) around a solid accent-colored
- * core, with a handful of small marker points scattered across the surface
- * like nodes on a network. It spins continuously and steadily on its own
- * (not just on hover/mouse), with a light cursor-driven tilt layered on top.
+ * A real Earth — day-map, specular map (oceans read glossier than land),
+ * normal map (terrain relief) and an independently-rotating cloud layer,
+ * using the same public-domain NASA-derived imagery from three.js's own
+ * official Earth example. Tilted on its axis like the real thing, and
+ * spinning continuously and steadily on its own, with a light cursor tilt
+ * layered on top.
  */
 function Globe() {
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<Group>(null);
+  const cloudsRef = useRef<Mesh>(null);
   const reducedMotion = useReducedMotion();
-  const tilt = useRef({ x: 0, y: 0 });
+  const tilt = useRef({ y: 0 });
 
-  const coreMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: '#4F46E5', roughness: 0.35, metalness: 0.1 }),
-    []
-  );
-
-  const markerPositions = useMemo(() => {
-    // A handful of fixed points on the sphere's surface, spherical coords.
-    const points: [number, number, number][] = [];
-    const coords: [number, number][] = [
-      [0.6, 0.4],
-      [-0.8, 1.1],
-      [1.4, 2.3],
-      [-1.6, 3.4],
-      [0.3, 4.6],
-      [-1.1, 5.5],
-    ];
-    coords.forEach(([lat, lon]) => {
-      const r = 1.32;
-      const x = r * Math.cos(lat) * Math.cos(lon);
-      const y = r * Math.sin(lat);
-      const z = r * Math.cos(lat) * Math.sin(lon);
-      points.push([x, y, z]);
-    });
-    return points;
-  }, []);
+  const [colorMap, specularMap, normalMap, cloudsMap] = useLoader(TextureLoader, [
+    `${TEXTURE_BASE}/earth_atmos_2048.jpg`,
+    `${TEXTURE_BASE}/earth_specular_2048.jpg`,
+    `${TEXTURE_BASE}/earth_normal_2048.jpg`,
+    `${TEXTURE_BASE}/earth_clouds_1024.png`,
+  ]);
 
   useFrame((_, delta) => {
     const group = groupRef.current;
     if (!group) return;
     if (!reducedMotion) {
       // Steady, clearly visible spin — always running, not dependent on hover.
-      group.rotation.y += delta * 0.35;
-      group.rotation.x += (tilt.current.y - group.rotation.x) * 0.03;
+      group.rotation.y += delta * 0.18;
+      group.rotation.z += (tilt.current.y - group.rotation.z) * 0.03;
+      if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.045;
     }
   });
 
   useEffect(() => {
     if (reducedMotion) return;
     const handlePointerMove = (e: PointerEvent) => {
-      const ny = (e.clientY / window.innerHeight - 0.5) * 0.35;
-      tilt.current = { x: 0, y: ny };
+      const ny = (e.clientY / window.innerHeight - 0.5) * 0.2;
+      tilt.current = { y: ny };
     };
     window.addEventListener('pointermove', handlePointerMove);
     return () => window.removeEventListener('pointermove', handlePointerMove);
   }, [reducedMotion]);
 
   return (
-    <group ref={groupRef} rotation={[0.35, 0, 0]}>
-      {/* Wireframe shell — latitude/longitude grid, globe-like */}
+    // Axial tilt, roughly matching Earth's real ~23.4°
+    <group ref={groupRef} rotation={[0, 0, 0.41]}>
       <mesh>
-        <sphereGeometry args={[1.35, 22, 16]} />
-        <meshBasicMaterial color="#111113" wireframe transparent opacity={0.22} />
+        <sphereGeometry args={[1.3, 64, 64]} />
+        <meshPhongMaterial
+          map={colorMap}
+          specularMap={specularMap}
+          normalMap={normalMap}
+          normalScale={new Vector2(0.85, 0.85)}
+          specular={new Color('#555555')}
+          shininess={7}
+        />
       </mesh>
 
-      {/* Solid core */}
-      <mesh material={coreMaterial}>
-        <sphereGeometry args={[1, 48, 48]} />
+      {/* Cloud layer — slightly larger, semi-transparent, rotates independently */}
+      <mesh ref={cloudsRef} scale={1.015}>
+        <sphereGeometry args={[1.3, 64, 64]} />
+        <meshPhongMaterial map={cloudsMap} transparent opacity={0.7} depthWrite={false} />
       </mesh>
 
-      {/* Node markers scattered across the surface */}
-      {markerPositions.map((pos, i) => (
-        <mesh key={i} position={pos}>
-          <sphereGeometry args={[0.045, 12, 12]} />
-          <meshBasicMaterial color="#FAFAF8" />
-        </mesh>
-      ))}
+      {/* Thin atmosphere glow */}
+      <mesh scale={1.06}>
+        <sphereGeometry args={[1.3, 32, 32]} />
+        <meshBasicMaterial color="#8b8bf0" transparent opacity={0.1} side={BackSide} />
+      </mesh>
     </group>
   );
 }
@@ -103,9 +95,9 @@ export default function SkillsModel({ height = 420 }: SkillsModelProps) {
         style={{ background: 'transparent', width: '100%', height: '100%' }}
         frameloop={reducedMotion ? 'demand' : 'always'}
       >
-        <ambientLight intensity={0.65} />
-        <directionalLight position={[3, 3, 4]} intensity={0.9} color="#ffffff" />
-        <directionalLight position={[-3, -1, 2]} intensity={0.3} color="#c7c6ff" />
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[3, 2, 4]} intensity={1.1} color="#ffffff" />
+        <directionalLight position={[-3, -1, 2]} intensity={0.25} color="#c7c6ff" />
         <Globe />
       </Canvas>
       {isTouch && null /* touch devices simply lose the pointer-tilt nuance, kept intentionally minimal */}

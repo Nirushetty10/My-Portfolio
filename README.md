@@ -48,12 +48,16 @@ touching components.
 
 - **Hero** — a short headline, one line of supporting copy, two buttons, and
   a small 3D object (`components/SkillsModel`) standing in for "connected,
-  global-scale work": a continuously rotating wireframe globe with a solid
-  accent core and a few node markers, rather than a literal icon set. It's
-  lazy-loaded (`React.lazy` + `Suspense` in `Hero.tsx`) so the ~190KB gzipped
-  three.js chunk downloads in the background instead of blocking the rest
-  of the page from rendering. It spins on its own, steadily, all the time —
-  not just on hover.
+  global-scale work": a real, textured Earth — day map, specular map (oceans
+  read glossier than land), normal map (terrain relief) and an
+  independently-rotating cloud layer, tilted on its axis like the real
+  thing. The imagery (`public/textures/earth_*`) is the same public-domain,
+  NASA-derived set used in three.js's own official Earth example — see the
+  licensing note below. It's lazy-loaded (`React.lazy` + `Suspense` in
+  `Hero.tsx`) so the three.js JS chunk *and* the ~1.3MB of texture files
+  download in the background instead of blocking the rest of the page from
+  rendering. It spins on its own, steadily, all the time — not just on
+  hover.
 - **Selected Work** — a plain two-column responsive grid of project cards.
   Normal document scroll, no pinning, no scroll-jacking. Each card has a
   light cursor-following tilt (capped at ~5°) and the thumbnail zooms
@@ -114,3 +118,16 @@ touching components.
 - **Experience timeline copy**: `src/data/experience.ts` describes each
   year in general terms since no employer names were supplied — add
   specifics if you want them named.
+
+## Asset licensing note
+
+The Earth textures in `public/textures/` (`earth_atmos_2048.jpg`,
+`earth_specular_2048.jpg`, `earth_normal_2048.jpg`,
+`earth_clouds_1024.png`) are NASA-derived imagery (Blue Marble / cloud
+composite data), redistributed as public-domain example assets in the
+official [three.js repository](https://github.com/mrdoob/three.js) — the
+same files used in their own `webgl_earth` demo. NASA imagery itself is
+public domain; three.js redistributes it under their MIT-licensed examples.
+No additional attribution is legally required, but it's good practice to
+credit NASA/three.js if you want to.
+
